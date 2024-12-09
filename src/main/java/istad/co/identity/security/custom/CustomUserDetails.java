@@ -19,17 +19,18 @@ public class CustomUserDetails implements UserDetails {
 
     private User user;
 
+    // Constructor to create from User
+    public CustomUserDetails(User user) {
+        this.user = user;
+    }
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-
         List<SimpleGrantedAuthority> authorities = new ArrayList<>();
-
-        user
-                .getUserAuthorities()
+        user.getUserAuthorities()
                 .forEach(userRole -> {
                     authorities.add(new SimpleGrantedAuthority(userRole.getAuthority().getName()));
                 });
-
         return authorities;
     }
 
@@ -62,5 +63,4 @@ public class CustomUserDetails implements UserDetails {
     public boolean isEnabled() {
         return user.getIsEnabled();
     }
-
 }

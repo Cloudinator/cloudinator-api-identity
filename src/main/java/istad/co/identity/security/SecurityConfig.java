@@ -1,12 +1,15 @@
 package istad.co.identity.security;
 
 import istad.co.identity.security.custom.CustomUserDetails;
+import istad.co.identity.security.custom.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -15,6 +18,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationServerConfigurer;
@@ -25,6 +29,8 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -36,16 +42,16 @@ import java.util.Set;
 public class SecurityConfig {
 
 
-    private final UserDetailsService userDetailsService;
+    private final CustomUserDetailsService userDetailsService;
     private final PasswordEncoder passwordEncoder;
 
 
     @Bean
     DaoAuthenticationProvider daoAuthenticationProvider() {
-        DaoAuthenticationProvider authenticationProvider = new DaoAuthenticationProvider();
-        authenticationProvider.setUserDetailsService(userDetailsService);
-        authenticationProvider.setPasswordEncoder(passwordEncoder);
-        return authenticationProvider;
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+        provider.setUserDetailsService(userDetailsService);
+        provider.setPasswordEncoder(passwordEncoder);
+        return provider;
     }
 
 
@@ -103,15 +109,36 @@ public class SecurityConfig {
                         .passwordParameter("gp_password")
                 )*/
                 .formLogin(form -> form
-                                .loginPage("/login")  // Custom login page URL
-                                .loginProcessingUrl("/login")  // Where the login form posts to
-                                .usernameParameter("username")  // Default username parameter is 'username'
-                                .passwordParameter("password")  // Default password parameter is 'password'
-                                .failureUrl("/login?error=true")  // URL to redirect to in case of login failure
-                                .defaultSuccessUrl("/login?success=true", false)
+                        .loginPage("/login")
+                        .loginProcessingUrl("/login")
+                        .usernameParameter("username")  // Will accept both username and email
+                        .passwordParameter("password")
+                        .failureHandler((request, response, exception) -> {
+                            String errorMessage;
+                            String identifier = request.getParameter("username");
+                            log.info("Login attempt for: {}", identifier);
 
-//                        .successForwardUrl("http://localhost:8000")
-                ) // Redirect on success
+                            if (exception instanceof UsernameNotFoundException) {
+                                errorMessage = "User not found";
+                                log.warn("Login failed - User not found: {}", identifier);
+                            } else if (exception instanceof BadCredentialsException) {
+                                errorMessage = "Invalid credentials";
+                                log.warn("Login failed - Invalid credentials for: {}", identifier);
+                            } else if (exception instanceof DisabledException) {
+                                errorMessage = "Account is not activated";
+                                log.warn("Login failed - Account not activated: {}", identifier);
+                            } else {
+                                errorMessage = "Login failed";
+                                log.error("Login failed - Unexpected error: {}", exception.getMessage());
+                            }
+
+                            response.sendRedirect("/login?error=" + URLEncoder.encode(errorMessage, StandardCharsets.UTF_8));
+                        })
+                        .successHandler((request, response, authentication) -> {
+                            log.info("Successful login for: {}", authentication.getName());
+                            response.sendRedirect("/login?success=true");
+                        })
+                )// Redirect on success
                 .logout(logout -> logout
                         .logoutUrl("/logout")  // The logout URL
                         .invalidateHttpSession(true)  // Invalidate the session
