@@ -43,12 +43,12 @@ public class AuthController {
         return ResponseEntity.ok(authService.login(loginRequest));
     }
 
-    @PreAuthorize("hasAnyAuthority('SCOPE_USER', 'SCOPE_profile')")
+//    @PreAuthorize("hasAnyAuthority('SCOPE_USER', 'SCOPE_profile')")
     @GetMapping("/me")
     UserResponse findMe(Authentication authentication) {
 
-        Jwt jwt = (Jwt) authentication.getPrincipal();
-        System.out.println(jwt.getTokenValue());
+//        Jwt jwt = (Jwt) authentication.getPrincipal();
+//        System.out.println(jwt.getTokenValue());
 
         return authService.findMe(authentication);
     }
