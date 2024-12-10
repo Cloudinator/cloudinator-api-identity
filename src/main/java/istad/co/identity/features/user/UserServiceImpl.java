@@ -40,6 +40,7 @@ public class UserServiceImpl implements UserService{
     private final AuthorityRepository authorityRepository;
     private final UserAuthorityRepository userAuthorityRepository;
     private final EmailVerificationTokenService emailVerificationTokenService;
+    private final GitLabServiceFein gitLabServiceFein;
 
     @Override
     public void createNewUser(UserCreateRequest userCreateRequest) {
@@ -91,6 +92,9 @@ public class UserServiceImpl implements UserService{
         userAuthorityRepository.saveAll(user.getUserAuthorities());
 
         emailVerificationTokenService.generate(user);
+
+        gitLabServiceFein.createUser(user.getUsername(), user.getEmail(), user.getPassword());
+
     }
 
     @Override
@@ -99,6 +103,15 @@ public class UserServiceImpl implements UserService{
         if(authentication==null){
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"user is not authenticated");
         }
+    }
+
+    @Override
+    public UserResponse getAuthenticatedUser(Authentication authentication) {
+
+        if(authentication!=null){
+            return findByUsername(authentication.getName());
+        }
+        return null;
     }
 
     @Override
@@ -214,6 +227,10 @@ public class UserServiceImpl implements UserService{
     @Override
     public void verifyEmail(User user) {
         user.setEmailVerified(true);
+        log.info("User email has been verified");
+        log.info("username: {}", user.getUsername());
+        log.info("email: {}", user.getEmail());
+        log.info("password: {}", user.getPassword());
         userRepository.save(user);
     }
 

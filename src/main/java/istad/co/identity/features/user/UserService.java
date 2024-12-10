@@ -14,6 +14,8 @@ public interface UserService {
 
     void isNotAuthenticated(Authentication authentication);
 
+    UserResponse getAuthenticatedUser(Authentication authentication);
+
     UserPasswordResetResponse resetPassword(String username);
 
     void enable(String username);
